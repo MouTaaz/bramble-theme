@@ -235,6 +235,7 @@
 /* Image — natural aspect ratio on mobile */
 .featured-product__media {
   width: calc(100% - (var(--fp-space-unit) * 2));
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: var(--fp-radius-media);
   margin: 0 var(--fp-space-unit);
@@ -242,7 +243,8 @@
 
 .featured-product__image {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   display: block;
 }
 
@@ -560,7 +562,9 @@
    ============================================ */
 @media screen and (min-width: 990px) {
   .featured-product__container {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
   }
 
   .featured-product__media,
@@ -571,18 +575,15 @@
 
   .featured-product__media {
     margin: 0;
-    width: 50%;
+    width: auto;
+    aspect-ratio: 1 / 1;
     border-radius: 0;
   }
 
-  /* Image fills the dynamic column height on desktop */
-  .featured-product__image {
-    height: 100%;
-    object-fit: cover;
-  }
-
   .featured-product__content {
-    padding: 80px;
+    width: auto;
+    min-width: 0;
+    padding: clamp(40px, 5vw, 80px);
     justify-content: center;
     gap: 24px;
   }
