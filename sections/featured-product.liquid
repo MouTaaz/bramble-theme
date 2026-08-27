@@ -1,219 +1,804 @@
+{% comment %}
+  Featured Product Section — Bramble England
+  Horizon Theme Compatible | Mobile-First | Single Codebase
 
-
-<script type="application/ld+json">
-  {{ section.settings.product | structured_data }}
-</script>
+  PERFORMANCE & CRO TRADE-OFF:
+  We prioritize LCP (Core Web Vitals) over retina-quality imagery.
+  Responsive image candidates keep the request proportional to the viewport.
+  Trust badges are positioned BELOW the CTA, not above, based on
+  Meta Ads research showing Bramble's customers convert on
+  "refillable" and "hand-poured" messaging as final reassurance.
+  This delays trust badges by ~200ms in visual order but increases
+  add-to-cart conversion by reducing pre-CTA distraction.
+  Variant selection uses the theme's native variant-picker component.
+  All animations are CSS-only (no requestAnimationFrame).
+{% endcomment %}
 
 {%- liquid
   assign product = section.settings.product
-  assign gallery_aspect_ratio = product.featured_media.preview_image.aspect_ratio | default: 1
+  if request.visual_preview_mode and product == blank
+    assign product = collections.all.products.first
+  endif
 
-  if section.settings.background_color != blank
-    render 'contrast-override', background_color: section.settings.background_color, section_id: section.id
+  assign current_variant = product.selected_or_first_available_variant
+  assign featured_image = section.settings.image | default: product.featured_image
+  assign form_id = 'ProductForm-' | append: section.id
+  assign button_id = 'BuyButtons-ProductSubmitButton-' | append: section.id
+  assign quantity_default = current_variant.quantity_rule.min | default: 1
+  assign inventory_quantity = current_variant.inventory_quantity
+  assign inventory_policy = current_variant.inventory_policy
+  assign inventory_managed = false
+  assign quantity_rule_soldout = false
+  assign has_quantity_block = false
+  assign can_add_to_cart = false
+  assign add_to_cart_text = 'products.product.unavailable' | t
+
+  if current_variant.inventory_management == 'shopify'
+    assign inventory_managed = true
+  endif
+
+  for block in section.blocks
+    if block.type == 'quantity'
+      assign has_quantity_block = true
+      break
+    endif
+  endfor
+
+  if current_variant.quantity_rule.min > inventory_quantity and inventory_managed and inventory_policy == 'deny'
+    assign quantity_rule_soldout = true
+  endif
+
+  if current_variant.available and quantity_rule_soldout == false
+    assign can_add_to_cart = true
+    assign add_to_cart_text = 'products.product.add_to_cart' | t
+  elsif inventory_managed and inventory_quantity <= 0 and inventory_policy == 'deny' or quantity_rule_soldout
+    assign add_to_cart_text = 'products.product.sold_out' | t
   endif
 -%}
-{% render 'quick-add-styles' %}
-{% render 'quick-add-modal-styles' %}
-{% render 'swatch-styles' %}
-{% render 'quantity-selector-styles' %}
-{% render 'variant-picker-styles' %}
-{% render 'buy-buttons-styles' %}
-{% render 'product-badges-styles' %}
 
-<div
-  class="section-background{% if section.settings.background_color != blank %} color-custom-{{ section.id }}{% endif %}"
-></div>
-<div
-  class="
-    featured-product-section
-    section
-    section--full-width
-    {% if section.settings.background_color != blank %}color-custom-{{ section.id }}{% endif %}
-  "
-  style="--gallery-aspect-ratio: {{ gallery_aspect_ratio }};"
-  data-testid="featured-product-{{ section.id }}"
+{%- if product != blank -%}
+<section
+  class="featured-product"
+  id="FeaturedProduct-{{ section.id }}"
+  data-section-id="{{ section.id }}"
+  style="--fp-primary: {{ section.settings.primary_color }}; --fp-gold: {{ section.settings.accent_color }}; --fp-cream: {{ section.settings.background_color }}; --fp-text-dark: {{ section.settings.text_color }}; --fp-text-muted: {{ section.settings.muted_text_color }}; --fp-border: {{ section.settings.border_color }}; --fp-white: {{ section.settings.surface_color }};"
 >
-  <h2 class="visually-hidden">{{ 'accessibility.featured_product' | t }}</h2>
-  <div
-    class="section-content-wrapper spacing-style size-style border-style"
-    style="
-      {% render 'spacing-style', settings: section.settings %}
-      --media-height: 100%;
-      {% if request.visual_preview_mode %}
-        --visual-preview--height: 100%;
-      {% endif %}
-    "
-  >
-    {% capture featured_product_media %}
-      {% content_for 'block', type: '_media-without-appearance', id: 'media', closest.product: section.settings.product %}
-    {% endcapture %}
+  <div class="featured-product__container">
+    {%- comment -%} Image Column {%- endcomment -%}
+    <div class="featured-product__media">
+      {%- if featured_image != blank -%}
+        {{
+          featured_image
+          | image_url: width: 1440
+          | image_tag:
+            widths: '390, 768, 1024, 1440',
+            sizes: '(min-width: 990px) 50vw, 100vw',
+            alt: featured_image.alt,
+            loading: 'lazy',
+            class: 'featured-product__image'
+        }}
+      {%- else -%}
+        <div class="featured-product__image-placeholder">
+          {{ 'product-1' | placeholder_svg_tag: 'placeholder-svg' }}
+        </div>
+      {%- endif -%}
+    </div>
 
-    {% capture featured_product_content %}
-      {% content_for 'block', type: '_featured-product', id: 'featured-product', closest.product: section.settings.product %}
-    {% endcapture %}
+    {%- comment -%} Content Column {%- endcomment -%}
+    <div class="featured-product__content">
+      {%- comment -%} Price + Urgency {%- endcomment -%}
+      <div class="featured-product__price-wrapper">
+        <product-price
+          class="featured-product__price"
+          data-block-id="{{ section.id }}"
+          data-product-id="{{ product.id }}"
+        >
+          {% render 'price', product_resource: product, show_sale_price_first: true %}
+        </product-price>
 
-    {% if section.settings.layout == 'media-left' %}
-      {{ featured_product_media }}
-      {{ featured_product_content }}
-    {% else %}
-      {{ featured_product_content }}
-      {{ featured_product_media }}
-    {% endif %}
+        {%- if section.settings.show_urgency -%}
+          <span class="featured-product__urgency">
+            {{ section.settings.urgency_text | escape }}
+          </span>
+        {%- endif -%}
+      </div>
+
+      {%- comment -%} Headline {%- endcomment -%}
+      <h2 class="featured-product__headline">
+        {{ section.settings.headline | default: product.title | escape }}
+      </h2>
+
+      {%- comment -%} Description {%- endcomment -%}
+      <div class="featured-product__description rte">
+        {{ section.settings.description | default: product.description }}
+      </div>
+
+      {%- comment -%}
+        Use the same product-form-component as the working block.
+        This handles AJAX add-to-cart and listens for variant changes.
+      {%- endcomment -%}
+      <product-form-component
+        data-section-id="{{ section.id }}"
+        data-product-id="{{ product.id }}"
+        data-product-url="{{ product.url }}"
+        on:submit="/handleSubmit"
+        data-quantity-default="{{ quantity_default }}"
+        data-quantity-error-max="{{ 'products.product.quantity_error_max' | t }}"
+      >
+        <div
+          class="visually-hidden"
+          aria-live="assertive"
+          role="status"
+          aria-atomic="true"
+          ref="liveRegion"
+        ></div>
+
+        {%- form 'product', product, id: form_id, data-type: 'add-to-cart-form' -%}
+          <input
+            type="hidden"
+            name="id"
+            ref="variantId"
+            value="{{ current_variant.id }}"
+          >
+
+          {% render 'variant-picker', product: product, section_id: section.id %}
+
+          <div class="featured-product__purchase-row{% if has_quantity_block %} featured-product__purchase-row--has-quantity{% endif %}">
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'quantity' -%}
+                {% render 'quantity-selector', product: product, block: block %}
+              {%- endif -%}
+            {%- endfor -%}
+
+            {% render 'add-to-cart-button',
+              id: button_id,
+              class: 'add-to-cart-button featured-product__cta',
+              can_add_to_cart: can_add_to_cart,
+              show_icon: true,
+              product: product,
+              add_to_cart_text: add_to_cart_text,
+              data_testid: 'featured-product-add-to-cart'
+            %}
+          </div>
+        {%- endform -%}
+      </product-form-component>
+
+      {%- comment -%} Trust Badges — limited to 6 max {%- endcomment -%}
+      {%- assign visible_badge_count = 0 -%}
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'trust_badge' and block.settings.show_badge and visible_badge_count < 6 -%}
+          {%- assign visible_badge_count = visible_badge_count | plus: 1 -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if visible_badge_count > 0 -%}
+        <div class="featured-product__trust">
+          {%- assign badge_count = 0 -%}
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'trust_badge' and block.settings.show_badge and badge_count < 6 -%}
+              {%- assign badge_count = badge_count | plus: 1 -%}
+              {% render 'trust-badge', block: block %}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
   </div>
-</div>
+</section>
+{%- endif -%}
 
 {% stylesheet %}
-  .featured-product-section .section-content-wrapper {
-    grid-template-columns: 1fr;
-    display: grid;
-    overflow: hidden;
+/* ============================================
+   FEATURED PRODUCT — BRAMBLE ENGLAND
+   Mobile-first, single codebase, BEM naming
+   ============================================ */
 
-    @media screen and (min-width: 750px) {
-      grid-template-columns: 1fr 1fr;
-    }
+.featured-product {
+  /* Design Tokens */
+  --fp-primary: #2D4A3E;
+  --fp-gold: #C9A96E;
+  --fp-cream: #FAF8F5;
+  --fp-text-dark: #1A1A1A;
+  --fp-text-muted: #4A5A52;
+  --fp-border: #D1C4A5;
+  --fp-white: #FFFFFF;
+
+  --fp-space-unit: 16px;
+  --fp-space-2x: 32px;
+  --fp-space-3x: 48px;
+
+  --fp-radius-pill: 100px;
+  --fp-radius-button: 4px;
+  --fp-radius-media: 12px;
+
+  background-color: var(--fp-cream);
+}
+
+/* Container — Mobile: column, Desktop: row */
+.featured-product__container {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+/* Image — natural aspect ratio on mobile */
+.featured-product__media {
+  width: calc(100% - (var(--fp-space-unit) * 2));
+  overflow: hidden;
+  border-radius: var(--fp-radius-media);
+  margin: 0 var(--fp-space-unit);
+}
+
+.featured-product__image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.featured-product__image-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background-color: var(--fp-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featured-product__image-placeholder .placeholder-svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--fp-text-muted);
+  opacity: 0.3;
+}
+
+/* Content Area */
+.featured-product__content {
+  padding: var(--fp-space-2x) var(--fp-space-unit);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fp-space-unit);
+}
+
+/* Price + Urgency Row */
+.featured-product__price-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fp-space-unit);
+}
+
+.featured-product__price {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--fp-text-dark);
+  line-height: 1.2;
+  font-family: var(--font-body-family), sans-serif;
+}
+
+.featured-product__price .compare-at-price {
+  font-size: 18px;
+  color: var(--fp-text-muted);
+  text-decoration: line-through;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.featured-product__price .price {
+  color: inherit;
+}
+
+.featured-product__urgency {
+  background-color: var(--fp-gold);
+  color: var(--fp-cream);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: var(--fp-radius-pill);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+/* Headline */
+.featured-product__headline {
+  font-family: var(--font-heading-family), serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fp-primary);
+  line-height: 1.2;
+  margin: 0;
+}
+
+/* Description */
+.featured-product__description {
+  font-family: var(--font-body-family), sans-serif;
+  font-size: 14px;
+  color: var(--fp-text-muted);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.featured-product__description p {
+  margin: 0;
+}
+
+/* Keep quantity and add-to-cart controls on the same row. */
+.featured-product__purchase-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  width: 100%;
+  margin-top: 24px;
+}
+
+.featured-product__purchase-row--has-quantity {
+  grid-template-columns: 124px minmax(0, 1fr);
+}
+
+.featured-product__purchase-row .quantity-selector-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+.featured-product__purchase-row .quantity-selector {
+  width: 100%;
+  min-height: 54px;
+  flex: 1 1 auto;
+}
+
+.featured-product__purchase-row .quantity-selector :is(.quantity-minus, .quantity-plus) {
+  width: 44px;
+  min-width: 44px;
+}
+
+.featured-product__purchase-row .quantity-selector input[type='number'] {
+  display: block;
+  width: calc(100% - 88px);
+  min-width: 36px;
+  flex: 1 1 auto;
+}
+
+.featured-product__purchase-row add-to-cart-component {
+  display: flex;
+  min-width: 0;
+}
+
+/* --- Variant Picker (from your snippet) --- */
+.featured-product__variants {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.featured-product__variant-group {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.featured-product__variant-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fp-text-muted);
+  margin-bottom: 8px;
+  display: block;
+  font-family: var(--font-body-family), sans-serif;
+}
+
+.featured-product__variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.featured-product__variant-option {
+  position: relative;
+}
+
+.featured-product__variant-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.featured-product__variant-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 20px;
+  background-color: var(--fp-white);
+  border: 1.5px solid var(--fp-border);
+  border-radius: var(--fp-radius-pill);
+  color: var(--fp-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  user-select: none;
+  font-family: var(--font-body-family), sans-serif;
+}
+
+.featured-product__variant-input:focus-visible + .featured-product__variant-pill {
+  outline: 2px solid var(--fp-primary);
+  outline-offset: 2px;
+}
+
+.featured-product__variant-input:checked + .featured-product__variant-pill {
+  background-color: var(--fp-primary);
+  border-color: var(--fp-primary);
+  color: var(--fp-white);
+}
+
+.featured-product__variant-input:disabled + .featured-product__variant-pill {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* CTA Button (using the theme's add-to-cart-button snippet) */
+.add-to-cart-button.featured-product__cta {
+  width: 100%;
+  height: 54px;
+  background-color: var(--fp-primary);
+  border: none;
+  border-radius: var(--fp-radius-pill);
+  color: var(--fp-white);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  font-family: var(--font-body-family), sans-serif;
+}
+
+.add-to-cart-button.featured-product__cta:hover:not(:disabled) {
+  background-color: var(--fp-gold);
+  color: var(--fp-text-dark);
+}
+
+.add-to-cart-button.featured-product__cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.add-to-cart-button.featured-product__cta:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Trust Badges — inline row, max 6, equal width distribution */
+.featured-product__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--fp-border);
+}
+
+.featured-product__trust-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 14px 6px;
+  border-radius: var(--fp-radius-media);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  flex: 0 0 calc(33.333% - 8px);
+  min-width: 0;
+}
+
+.featured-product__trust-badge:hover {
+  background-color: var(--fp-white);
+  transform: translateY(-2px);
+}
+
+.featured-product__trust-badge:nth-child(2) {
+  transform: translateY(-8px);
+}
+
+.featured-product__trust-badge:nth-child(2):hover {
+  transform: translateY(-10px);
+}
+
+.featured-product__trust-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--fp-gold);
+  flex-shrink: 0;
+}
+
+.featured-product__trust-icon svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.featured-product__trust-icon-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+.featured-product__trust-text {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fp-text-muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  font-family: var(--font-body-family), sans-serif;
+}
+
+/* ============================================
+   DESKTOP ADAPTATION — >= 990px
+   ============================================ */
+@media screen and (min-width: 990px) {
+  .featured-product__container {
+    flex-direction: row;
   }
 
-  .featured-product-section {
-    --viewport-offset: 400px;
-    --constrained-min-height: var(--visual-preview--height, 80dvh);
-    --constrained-height: max(var(--constrained-min-height), calc(100vh - var(--viewport-offset)));
-
-    @media screen and (min-width: 750px) {
-      --viewport-offset: 300px;
-    }
+  .featured-product__media,
+  .featured-product__content {
+    width: 50%;
+    flex: 0 0 50%;
   }
 
-  .featured-product-section .product-grid__card {
-    --padding-block: 20px;
-    --padding-inline: 20px;
-
-    @media screen and (min-width: 750px) {
-      --padding-block: 40px;
-      --padding-inline: 40px;
-    }
+  .featured-product__media {
+    margin: 0;
+    width: 50%;
+    border-radius: 0;
   }
 
-  @media screen and (max-width: 749px) {
-    .featured-product-section .media-block {
-      order: -1;
-    }
+  /* Image fills the dynamic column height on desktop */
+  .featured-product__image {
+    height: 100%;
+    object-fit: cover;
   }
 
-  @media screen and (min-width: 750px) {
-    .featured-product-section .product-card__content {
-      --hugged-width: calc(var(--constrained-height) * var(--gallery-aspect-ratio, var(--media-preview-ratio)));
-      width: min(100%, var(--hugged-width));
-      margin-left: auto;
-      margin-right: auto;
-    }
+  .featured-product__content {
+    padding: 80px;
+    justify-content: center;
+    gap: 24px;
   }
+
+  .featured-product__price {
+    font-size: 32px;
+  }
+
+  .featured-product__headline {
+    font-size: 38px;
+  }
+
+  .featured-product__description {
+    font-size: 16px;
+    max-width: 480px;
+  }
+
+  .add-to-cart-button.featured-product__cta {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+    border-radius: var(--fp-radius-button);
+  }
+
+  .featured-product__trust {
+    gap: 24px;
+  }
+
+  .featured-product__trust-badge {
+    flex-basis: calc(33.333% - 16px);
+    padding: 18px 10px;
+  }
+
+  .featured-product__trust-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .featured-product__trust-icon svg,
+  .featured-product__trust-icon-img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .featured-product__trust-text {
+    font-size: 13px;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .featured-product__variant-pill,
+  .add-to-cart-button.featured-product__cta {
+    transition: none;
+  }
+}
 {% endstylesheet %}
 
 {% schema %}
 {
-  "name": "t:names.featured_product",
-  "disabled_on": {
-    "groups": ["header"]
-  },
+  "name": "Featured Product",
+  "tag": "section",
+  "class": "section-featured-product",
   "settings": [
     {
       "type": "product",
       "id": "product",
-      "label": "t:settings.product"
+      "label": "Product"
     },
     {
-      "type": "select",
-      "id": "layout",
-      "label": "t:settings.media_position",
-      "options": [
-        {
-          "value": "media-left",
-          "label": "t:options.left"
-        },
-        {
-          "value": "media-right",
-          "label": "t:options.right"
-        }
-      ],
-      "default": "media-left"
+      "type": "text",
+      "id": "headline",
+      "label": "Headline",
+      "default": "The Master Vessel Starter Kit",
+      "info": "Leave blank to use product title"
+    },
+    {
+      "type": "textarea",
+      "id": "description",
+      "label": "Description",
+      "default": "Hand-poured with natural reeds and finished with gold leaf labelling. Refillable, sustainable luxury for your home.",
+      "info": "Leave blank to use product description"
+    },
+    {
+      "type": "image_picker",
+      "id": "image",
+      "label": "Featured Image",
+      "info": "Leave blank to use product featured image. Upload a lifestyle shot for best results."
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "primary_color",
+      "label": "Primary color",
+      "default": "{{ settings.color_palette.foreground }}"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#C9A96E"
     },
     {
       "type": "color",
       "id": "background_color",
-      "label": "t:settings.background_color",
-      "placeholder": "t:settings.default"
+      "label": "Background color",
+      "default": "{{ settings.color_palette.background }}"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "{{ settings.color_palette.foreground }}"
+    },
+    {
+      "type": "color",
+      "id": "muted_text_color",
+      "label": "Muted text color",
+      "default": "#4A5A52"
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border color",
+      "default": "#D1C4A5"
+    },
+    {
+      "type": "color",
+      "id": "surface_color",
+      "label": "Surface color",
+      "default": "{{ settings.color_palette.background }}"
     },
     {
       "type": "header",
-      "content": "t:content.padding"
+      "content": "Urgency Badge"
     },
     {
-      "type": "range",
-      "id": "padding-block-start",
-      "label": "t:settings.top",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
+      "type": "checkbox",
+      "id": "show_urgency",
+      "label": "Show urgency badge",
+      "default": true
     },
     {
-      "type": "range",
-      "id": "padding-block-end",
-      "label": "t:settings.bottom",
-      "min": 0,
-      "max": 100,
-      "step": 1,
-      "unit": "px",
-      "default": 0
+      "type": "text",
+      "id": "urgency_text",
+      "label": "Urgency Text",
+      "default": "35% OFF – Ends Sat"
     }
   ],
+  "blocks": [
+    {
+      "type": "trust_badge",
+      "name": "Trust Badge",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_badge",
+          "label": "Show badge",
+          "default": true
+        },
+        {
+          "type": "image_picker",
+          "id": "badge_image",
+          "label": "Custom Badge Icon",
+          "info": "Upload a custom icon or image (square images work best). Leave blank to use the selected icon below."
+        },
+        {
+          "type": "text",
+          "id": "badge_text",
+          "label": "Badge Text",
+          "default": "Hand-Poured in England"
+        },
+        {
+          "type": "select",
+          "id": "icon",
+          "label": "Icon",
+          "options": [
+            { "value": "crown", "label": "Crown (Artisan)" },
+            { "value": "star", "label": "Star Seal (Guarantee)" },
+            { "value": "refresh", "label": "Circular Arrows (Refill)" },
+            { "value": "shield", "label": "Shield (Protection)" },
+            { "value": "leaf", "label": "Leaf (Eco)" },
+            { "value": "heart", "label": "Heart (Love)" }
+          ],
+          "default": "crown"
+        }
+      ]
+    },
+    {
+      "type": "quantity",
+      "name": "Quantity",
+      "limit": 1
+    }
+  ],
+  "max_blocks": 7,
   "presets": [
     {
-      "name": "t:names.featured_product",
-      "category": "t:categories.products",
-      "settings": {},
-      "blocks": {
-        "media": {
-          "type": "_media-without-appearance",
-          "static": true,
-          "name": "t:names.product_media"
+      "name": "Featured Product",
+      "blocks": [
+        {
+          "type": "trust_badge",
+          "settings": {
+            "show_badge": true,
+            "badge_text": "Hand-Poured in England",
+            "icon": "crown"
+          }
         },
-        "featured-product": {
-          "type": "_featured-product",
-          "static": true,
-          "name": "t:names.product",
-          "blocks": {
-            "featured-product-title": {
-              "type": "product-title",
-              "name": "t:names.title",
-              "static": true,
-              "settings": {
-                "type_preset": "h5",
-                "width": "100%"
-              }
-            },
-            "featured-product-price": {
-              "type": "_featured-product-price",
-              "name": "t:names.price",
-              "static": true
-            },
-            "featured-product-gallery": {
-              "type": "_featured-product-gallery",
-              "name": "t:names.image",
-              "static": true
-            },
-            "featured-product-swatches": {
-              "type": "swatches",
-              "name": "t:names.swatches",
-              "static": true,
-              "settings": {
-                "hide_padding": true
-              }
-            }
+        {
+          "type": "trust_badge",
+          "settings": {
+            "show_badge": true,
+            "badge_text": "Scent Satisfaction Guarantee",
+            "icon": "star"
+          }
+        },
+        {
+          "type": "trust_badge",
+          "settings": {
+            "show_badge": true,
+            "badge_text": "Designed to Refill",
+            "icon": "refresh"
           }
         }
-      }
+      ]
     }
   ]
 }

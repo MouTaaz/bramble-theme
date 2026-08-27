@@ -1,0 +1,60 @@
+{% comment %}
+  Trust Badge Snippet
+  Usage: {% render 'trust-badge', block: block %}
+{% endcomment %}
+
+<div class="featured-product__trust-badge" {{ block.shopify_attributes }}>
+  <div class="featured-product__trust-icon" aria-hidden="true">
+    {%- if block.settings.badge_image != blank -%}
+      {{
+        block.settings.badge_image
+        | image_url: width: 48
+        | image_tag:
+          widths: '24, 32, 48',
+          sizes: '48px',
+          alt: '',
+          loading: 'lazy',
+          class: 'featured-product__trust-icon-img'
+      }}
+    {%- else -%}
+      {%- case block.settings.icon -%}
+        {%- when 'crown' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 16L3 8l5 3 4-7 4 7 5-3-2 8H5z"/>
+            <path d="M5 16v4h14v-4"/>
+            <path d="M9 20v-3h6v3"/>
+          </svg>
+
+        {%- when 'star' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+
+        {%- when 'refresh' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6"/>
+            <path d="M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+
+        {%- when 'shield' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+
+        {%- when 'leaf' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 20A7 7 0 019 6a7 7 0 0113 4c0 4-3 7-7 8l-2 2-2-2z"/>
+            <path d="M11 20v-6"/>
+          </svg>
+
+        {%- when 'heart' -%}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+          </svg>
+
+      {%- endcase -%}
+    {%- endif -%}
+  </div>
+  <span class="featured-product__trust-text">{{ block.settings.badge_text | escape }}</span>
+</div>

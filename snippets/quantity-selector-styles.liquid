@@ -9,7 +9,7 @@
 {% stylesheet %}
   /* Quantity selector */
   .quantity-selector {
-    --quantity-selector-width: 124px;
+    --quantity-selector-width: var(--quantity-selector-width-custom, 124px);
 
     display: flex;
     justify-content: space-between;
