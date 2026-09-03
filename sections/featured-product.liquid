@@ -475,9 +475,11 @@
   font-family: var(--font-body-family), sans-serif;
 }
 
-.add-to-cart-button.featured-product__cta:hover:not(:disabled) {
-  background-color: var(--fp-gold);
-  color: var(--fp-text-dark);
+@media (hover: hover) and (pointer: fine) {
+  .add-to-cart-button.featured-product__cta:hover:not(:disabled) {
+    background-color: var(--fp-gold);
+    color: var(--fp-text-dark);
+  }
 }
 
 .add-to-cart-button.featured-product__cta:active:not(:disabled) {
