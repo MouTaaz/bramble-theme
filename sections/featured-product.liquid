@@ -473,6 +473,16 @@
   gap: 8px;
   position: relative;
   font-family: var(--font-body-family), sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.add-to-cart-button.featured-product__cta:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.add-to-cart-button.featured-product__cta:focus-visible {
+  outline: 2px solid var(--fp-gold);
+  outline-offset: 3px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -643,6 +653,8 @@
   }
 }
 {% endstylesheet %}
+
+{% render 'add-to-cart-button-styles' %}
 
 {% schema %}
 {
